@@ -70,11 +70,14 @@ public class SwaggerTests(FulfillmentApiFactory production, DevelopmentApiFactor
     }
 
     [Theory]
+    [InlineData("/api/products", "get", new[] { "200", "400" })]
     [InlineData("/api/products", "post", new[] { "201", "400", "409" })]
     [InlineData("/api/products/{id}", "get", new[] { "200", "404" })]
     [InlineData("/api/products/{id}/stock", "patch", new[] { "200", "400", "404", "409" })]
+    [InlineData("/api/orders", "get", new[] { "200", "400" })]
     [InlineData("/api/orders", "post", new[] { "201", "400", "409" })]
     [InlineData("/api/orders/{id}/status", "put", new[] { "200", "400", "404", "409" })]
+    [InlineData("/api/alerts", "get", new[] { "200", "400" })]
     [InlineData("/api/alerts/{id}/acknowledge", "post", new[] { "200", "404", "409" })]
     [InlineData("/api/alerts/{id}/resolve", "post", new[] { "200", "404", "409" })]
     public async Task Operations_document_their_success_and_error_responses(string path, string method, string[] codes)
@@ -114,6 +117,45 @@ public class SwaggerTests(FulfillmentApiFactory production, DevelopmentApiFactor
     }
 
     [Fact]
+    public async Task Request_examples_are_ready_for_the_swagger_demo_flow()
+    {
+        var document = await DocumentAsync();
+
+        var createProduct = RequestExample(document, "/api/products", "post");
+        Assert.Equal("SKU-1001", createProduct.GetProperty("sku").GetString());
+        Assert.Equal("Demo Product", createProduct.GetProperty("name").GetString());
+        Assert.Equal("Sample product for testing", createProduct.GetProperty("description").GetString());
+        Assert.Equal(100m, createProduct.GetProperty("unitPrice").GetDecimal());
+        Assert.Equal(50, createProduct.GetProperty("stockQuantity").GetInt32());
+        Assert.Equal(10, createProduct.GetProperty("reorderThreshold").GetInt32());
+
+        var createOrder = RequestExample(document, "/api/orders", "post");
+        Assert.Equal("John Doe", createOrder.GetProperty("customerName").GetString());
+        Assert.Equal("john.doe@example.com", createOrder.GetProperty("customerEmail").GetString());
+
+        var item = Assert.Single(createOrder.GetProperty("items").EnumerateArray());
+        Assert.Equal("11111111-1111-1111-1111-111111111111", item.GetProperty("productId").GetString());
+        Assert.InRange(item.GetProperty("quantity").GetInt32(), 1, 5);
+
+        var status = RequestExample(document, "/api/orders/{id}/status", "put");
+        Assert.Equal("Confirmed", status.GetProperty("status").GetString());
+    }
+
+    [Theory]
+    [InlineData("/api/alerts/{id}/acknowledge")]
+    [InlineData("/api/alerts/{id}/resolve")]
+    public async Task Alert_mutations_document_how_to_get_the_required_alert_id(string path)
+    {
+        var document = await DocumentAsync();
+
+        var description = document.GetProperty("paths").GetProperty(path).GetProperty("post").GetProperty("description").GetString();
+
+        Assert.Contains("GET /api/alerts", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("copy", description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("no request body", description, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task The_resolve_endpoint_documents_that_the_sentinel_may_re_raise()
     {
         var document = await DocumentAsync();
@@ -123,4 +165,13 @@ public class SwaggerTests(FulfillmentApiFactory production, DevelopmentApiFactor
         Assert.Contains("fresh alert", resolve.GetProperty("summary").GetString() + resolve.GetProperty("description").GetString(),
             StringComparison.OrdinalIgnoreCase);
     }
+
+    private static JsonElement RequestExample(JsonElement document, string path, string method) =>
+        document.GetProperty("paths")
+            .GetProperty(path)
+            .GetProperty(method)
+            .GetProperty("requestBody")
+            .GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("example");
 }

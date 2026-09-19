@@ -1,7 +1,9 @@
 using Fulfillment.Application.Common;
 using Fulfillment.Application.Dtos;
 using Fulfillment.Application.Services;
+using Fulfillment.Api.Swagger.Examples;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Filters;
 
 namespace Fulfillment.Api.Controllers;
 
@@ -11,6 +13,8 @@ public sealed class ProductsController(IProductService products) : ControllerBas
 {
     /// <summary>Lists products, with optional search (name or SKU) and low-stock filtering.</summary>
     [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<ProductResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PagedResult<ProductResponse>>> List([FromQuery] ProductListQuery query, CancellationToken cancellationToken) =>
         await products.ListAsync(query, cancellationToken);
 
@@ -21,6 +25,7 @@ public sealed class ProductsController(IProductService products) : ControllerBas
         await products.GetAsync(id, cancellationToken);
 
     [HttpPost]
+    [SwaggerRequestExample(typeof(CreateProductRequest), typeof(CreateProductRequestExample))]
     [ProducesResponseType(typeof(ProductResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -31,6 +36,7 @@ public sealed class ProductsController(IProductService products) : ControllerBas
     }
 
     [HttpPut("{id:guid}")]
+    [SwaggerRequestExample(typeof(UpdateProductRequest), typeof(UpdateProductRequestExample))]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -54,6 +60,7 @@ public sealed class ProductsController(IProductService products) : ControllerBas
     /// instead of one silently overwriting the other. Stock can never go below zero.
     /// </remarks>
     [HttpPatch("{id:guid}/stock")]
+    [SwaggerRequestExample(typeof(AdjustStockRequest), typeof(AdjustStockRequestExample))]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

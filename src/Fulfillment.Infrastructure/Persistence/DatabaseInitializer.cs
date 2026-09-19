@@ -7,7 +7,7 @@ namespace Fulfillment.Infrastructure.Persistence;
 
 public static class DatabaseInitializer
 {
-    /// <summary>Applies pending migrations and, when the catalogue is empty, optionally loads sample data.</summary>
+    /// <summary>Applies pending migrations and, when enabled, loads sample data for local demos.</summary>
     public static async Task InitializeAsync(
         IServiceProvider services, bool migrate, bool seed, CancellationToken cancellationToken = default)
     {
@@ -21,12 +21,50 @@ public static class DatabaseInitializer
             logger.LogInformation("Database migrations applied");
         }
 
-        if (seed && !await db.Products.AnyAsync(cancellationToken))
+        if (seed)
         {
-            db.Products.AddRange(SampleProducts());
-            await db.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Sample catalogue seeded");
+            var changed = false;
+
+            if (!await db.Products.AnyAsync(cancellationToken))
+            {
+                db.Products.AddRange(SampleProducts());
+                changed = true;
+                logger.LogInformation("Sample catalogue queued for seeding");
+            }
+
+            changed |= await EnsureSwaggerDemoProductAsync(db, logger, cancellationToken);
+
+            if (changed)
+            {
+                await db.SaveChangesAsync(cancellationToken);
+                logger.LogInformation("Sample catalogue seeded");
+            }
         }
+    }
+
+    private static async Task<bool> EnsureSwaggerDemoProductAsync(
+        FulfillmentDbContext db,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        if (await db.Products.AnyAsync(p => p.Id == DemoSeedData.SwaggerOrderProductId, cancellationToken))
+        {
+            return false;
+        }
+
+        if (await db.Products.AnyAsync(p => p.Sku == DemoSeedData.SwaggerOrderProductSku, cancellationToken))
+        {
+            logger.LogWarning(
+                "Swagger demo product SKU {Sku} already exists with a different ID; use GET /api/products to copy an available product ID for order demos.",
+                DemoSeedData.SwaggerOrderProductSku);
+            return false;
+        }
+
+        var product = DemoSeedData.CreateSwaggerOrderProduct();
+        db.Products.Add(product);
+        db.Entry(product).Property(p => p.Id).CurrentValue = DemoSeedData.SwaggerOrderProductId;
+
+        return true;
     }
 
     // A mix of healthy and already-low products so the sentinel has something to report on first run.

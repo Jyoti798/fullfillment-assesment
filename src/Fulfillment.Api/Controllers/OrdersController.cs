@@ -1,7 +1,9 @@
 using Fulfillment.Application.Common;
 using Fulfillment.Application.Dtos;
 using Fulfillment.Application.Services;
+using Fulfillment.Api.Swagger.Examples;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Filters;
 
 namespace Fulfillment.Api.Controllers;
 
@@ -11,6 +13,8 @@ public sealed class OrdersController(IOrderService orders) : ControllerBase
 {
     /// <summary>Lists orders, newest first, optionally filtered by <c>status</c>.</summary>
     [HttpGet]
+    [ProducesResponseType(typeof(PagedResult<OrderResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PagedResult<OrderResponse>>> List([FromQuery] OrderListQuery query, CancellationToken cancellationToken) =>
         await orders.ListAsync(query, cancellationToken);
 
@@ -22,6 +26,7 @@ public sealed class OrdersController(IOrderService orders) : ControllerBase
 
     /// <summary>Places an order. Stock is deducted immediately; if any line cannot be fulfilled nothing is deducted.</summary>
     [HttpPost]
+    [SwaggerRequestExample(typeof(CreateOrderRequest), typeof(CreateOrderRequestExample))]
     [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
@@ -36,6 +41,7 @@ public sealed class OrdersController(IOrderService orders) : ControllerBase
     /// Cancelled from Pending or Confirmed, which returns the reserved stock.
     /// </summary>
     [HttpPut("{id:guid}/status")]
+    [SwaggerRequestExample(typeof(UpdateOrderStatusRequest), typeof(UpdateOrderStatusRequestExample))]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]

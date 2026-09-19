@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Text.Json.Serialization;
 using Fulfillment.Api.Middleware;
+using Fulfillment.Api.Swagger;
 using Fulfillment.Application;
 using Fulfillment.Infrastructure;
 using Fulfillment.Infrastructure.Persistence;
+using Swashbuckle.AspNetCore.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,9 +27,13 @@ builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerExamplesFromAssemblyOf<Program>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new() { Title = "Fulfillment API", Version = "v1" });
+    options.ExampleFilters();
+    options.OperationFilter<DemoOperationFilter>();
+
     var xml = Path.Combine(AppContext.BaseDirectory, $"{typeof(Program).Assembly.GetName().Name}.xml");
     if (File.Exists(xml))
     {
