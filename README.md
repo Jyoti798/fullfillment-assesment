@@ -100,6 +100,38 @@ Development behavior:
 - `appsettings.Development.json` enables sample data seeding and sets the sentinel interval to 15 seconds.
 - Default sentinel interval outside Development is 60 seconds.
 
+### Swagger demo walkthrough (Development)
+
+Every request body in Swagger UI is pre-filled with a working example, so the whole demo can be run from
+`http://localhost:5080/swagger` using **Try it out, then Execute**. Development seeds the sample catalogue plus a fixed
+demo product (`DEMO-ORDER-001`, id `11111111-1111-1111-1111-111111111111`, 50 in stock, reorder threshold 10) that the
+order example refers to, so it works immediately after startup.
+
+| # | Endpoint | What to do | Expected |
+|---|---|---|---|
+| 1 | `GET /api/products` | Execute | 200, the sample products plus the demo product |
+| 2 | `POST /api/products` | Execute the example body | 201 (a second click returns **409**, because the example SKU is fixed; change `sku` to create another) |
+| 3 | `GET /api/products/{id}` | The id is pre-filled with the demo product; Execute | 200 |
+| 4 | `PATCH /api/products/{id}/stock` | Pre-filled id; example body adds 10 | 200, stock 60 |
+| 5 | `PUT /api/products/{id}` | Pre-filled id; Execute the example | 200 |
+| 6 | `POST /api/orders` | Execute the example (it orders 2 of the demo product) | 201 `Pending`; stock drops by 2. Copy the returned `id` |
+| 7 | `PUT /api/orders/{id}/status` | Paste the order id; Execute the example (`Confirmed`) | 200 (a second click returns **409**: `Confirmed` to `Confirmed` is not a valid transition) |
+| 8 | `GET /api/alerts` | Execute (the sentinel scans every 15 s in Development, and at startup) | 200, open low-stock alerts for products already below their threshold. Copy an alert `id` |
+| 9 | `POST /api/alerts/{id}/acknowledge`, then `.../resolve` | Paste the alert id; these have no request body | 200 each |
+
+To show the sentinel reacting live, click step 6 repeatedly. Once the demo product's stock falls to its threshold of
+10, an alert for it appears within one scan; after about 25 clicks the order returns **409 insufficient stock**, and
+`PATCH .../stock` restocks it.
+
+Notes:
+
+- `DELETE /api/products/{id}` is deliberately **not** pre-filled: running it on the demo product deactivates it and the
+  order example then returns 409. If that happens, reactivate it with `PUT /api/products/{id}` (the example sets `isActive: true`).
+- If Swagger shows **no examples** or "Demo step" text, an old instance of the app is still running. A running process
+  locks its build output, so rebuilding silently fails to replace it. Stop it (Ctrl+C in its terminal) and start it again.
+- A test (`SwaggerDemoTests`) executes these served examples against a freshly seeded app on every test run, so the
+  walkthrough above cannot silently rot.
+
 ## 6. API Endpoints
 
 List endpoints support `page` and `pageSize` (`page >= 1`, `pageSize` between 1 and 100). Enums are serialized as strings.
@@ -284,8 +316,8 @@ Current suite:
 
 ```text
 148 unit tests
-106 integration tests
-254 total tests
+131 integration tests
+279 total tests
 ```
 
 Run:

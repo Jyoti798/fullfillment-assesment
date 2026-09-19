@@ -31,14 +31,18 @@ builder.Services.AddSwaggerExamplesFromAssemblyOf<Program>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new() { Title = "Fulfillment API", Version = "v1" });
-    options.ExampleFilters();
-    options.OperationFilter<DemoOperationFilter>();
 
+    // Order matters: operation filters run in registration order, and the XML-comments filter *replaces* an
+    // operation's description with its <remarks>. It must therefore be registered before the demo filter, which
+    // appends to the description; otherwise the demo text is silently lost on any action that has <remarks>.
     var xml = Path.Combine(AppContext.BaseDirectory, $"{typeof(Program).Assembly.GetName().Name}.xml");
     if (File.Exists(xml))
     {
         options.IncludeXmlComments(xml);
     }
+
+    options.ExampleFilters();
+    options.OperationFilter<DemoOperationFilter>();
 });
 
 builder.Services.AddHealthChecks().AddDbContextCheck<FulfillmentDbContext>("database");

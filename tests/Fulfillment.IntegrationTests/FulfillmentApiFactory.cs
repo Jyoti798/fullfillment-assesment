@@ -44,19 +44,23 @@ public class FulfillmentApiFactory : WebApplicationFactory<Program>
     /// <summary>"Testing" by default, so Development-only features (Swagger) are off, as they would be in production.</summary>
     protected virtual string EnvironmentName => "Testing";
 
+    /// <summary>Whether the sample catalogue and the Swagger demo product are seeded. Off by default so tests own their data.</summary>
+    protected virtual bool SeedSampleData => false;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(EnvironmentName);
         builder.UseSetting("ConnectionStrings:Fulfillment", $"Data Source={_databasePath}");
-        builder.UseSetting("Database:SeedSampleData", "false");
+        builder.UseSetting("Database:SeedSampleData", SeedSampleData ? "true" : "false");
         builder.UseSetting("LowStockSentinel:Enabled", "false");
     }
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        // Building two hosts runs Program.cs twice against the same SQLite file. Migrate once up front so
-        // the two startup migrations are harmless no-ops instead of racing to create the history table.
-        MigrateDatabase();
+        // Building two hosts runs Program.cs twice against the same SQLite file. Initialise the database once up
+        // front so the two startup initialisations are harmless no-ops instead of racing (to create the migrations
+        // table, or to insert the same seed rows twice).
+        PrepareDatabase();
 
         // The factory insists on a TestServer host (its Services back the tests that resolve scoped
         // services directly), so build that one first...
@@ -75,14 +79,16 @@ public class FulfillmentApiFactory : WebApplicationFactory<Program>
         return testHost;
     }
 
-    private void MigrateDatabase()
+    /// <summary>Runs the app's own <see cref="DatabaseInitializer"/> (migrations and, if enabled, the seed) exactly once.</summary>
+    private void PrepareDatabase()
     {
-        var options = new DbContextOptionsBuilder<FulfillmentDbContext>()
-            .UseSqlite($"Data Source={_databasePath}")
-            .Options;
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(TimeProvider.System);
+        services.AddDbContext<FulfillmentDbContext>(options => options.UseSqlite($"Data Source={_databasePath}"));
 
-        using var context = new FulfillmentDbContext(options, TimeProvider.System);
-        context.Database.Migrate();
+        using var provider = services.BuildServiceProvider();
+        DatabaseInitializer.InitializeAsync(provider, migrate: true, seed: SeedSampleData).GetAwaiter().GetResult();
     }
 
     protected override void Dispose(bool disposing)

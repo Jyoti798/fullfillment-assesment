@@ -14,6 +14,17 @@ public sealed class DevelopmentApiFactory : FulfillmentApiFactory
 }
 
 /// <summary>
+/// Development with the sample catalogue and the Swagger demo product seeded, exactly as a person running the app
+/// locally would have it. The sentinel stays off so tests remain deterministic.
+/// </summary>
+public sealed class DemoApiFactory : FulfillmentApiFactory
+{
+    protected override string EnvironmentName => "Development";
+
+    protected override bool SeedSampleData => true;
+}
+
+/// <summary>
 /// The app with a product service that always blows up, to exercise the unhandled-exception path and prove
 /// that nothing about the failure leaks into the response.
 /// </summary>

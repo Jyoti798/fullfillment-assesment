@@ -25,6 +25,10 @@ public sealed class OrdersController(IOrderService orders) : ControllerBase
         await orders.GetAsync(id, cancellationToken);
 
     /// <summary>Places an order. Stock is deducted immediately; if any line cannot be fulfilled nothing is deducted.</summary>
+    /// <remarks>
+    /// Every line must reference an existing, active product, and each product may appear only once. If any line
+    /// cannot be fulfilled the whole order is rejected with 409 and no stock is deducted for any line.
+    /// </remarks>
     [HttpPost]
     [SwaggerRequestExample(typeof(CreateOrderRequest), typeof(CreateOrderRequestExample))]
     [ProducesResponseType(typeof(OrderResponse), StatusCodes.Status201Created)]

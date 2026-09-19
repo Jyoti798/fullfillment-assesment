@@ -505,3 +505,25 @@ Verification:
 - Full suite passed outside the sandbox: 148 unit tests + 106 integration tests.
 
 ---
+
+## Turn 19
+
+**Prompt:**
+> I make so many change in the code  i completd the code almost you just scan the whole codebase and chek everyhting is done correctly or not the swagger json is updated with the example json or not so that i test from the swagger only and demo is easy for me
+>
+> chek the codebase completely
+
+**Response:** Audited the whole codebase (read-only first, then a verified build and a real run). Findings and outcome:
+
+- **Direct answer, is Swagger updated with examples?** In the source and in a fresh build, yes: all 5 request bodies carry examples. But **the Swagger page the user had open was stale**: an old `Fulfillment.Api` process (running since 21:53 on port 5080) served a document with no examples and no demo text, and because a running process locks its build output, every rebuild compiled into `obj` but could not replace `bin`. Fix on the user's side is to stop that process and restart. It was not killed by me.
+- **Verified against the current code, without touching the user's app or database:** Release build with warnings as errors (0 warnings); full suite green (148 unit + 106 integration, matching the README); a fresh instance on port 5099 with a temporary database, whose served Swagger document was inspected operation by operation, and the demo flow executed using only the served examples (create product, duplicate 409, get/patch/put on the demo product, order 201 with stock 60 to 58, status Confirmed 200 then 409, sentinel alerts, acknowledge, resolve; the order example kept working for 29 more clicks then returned 409, and the demo product raised a low-stock alert).
+- **Two real bugs found in the Swagger helper code and fixed:**
+  1. The demo text for the three alert operations never appeared: `IncludeXmlComments` was registered after the demo filter and replaces an operation's description with its `<remarks>`. Filter registration is reordered (with a comment explaining why), and the three dead alert branches removed because the controller remarks already carry that guidance.
+  2. All query-parameter guidance (status values, `LowStockOnly`, the demo `ProductId`) never appeared: the document names them in PascalCase (`Status`, `ProductId`) while the filter compared camelCase. Matching is now case-insensitive.
+- **Demo improvements:** the demo product id is pre-filled on `GET`, `PUT` and `PATCH` product routes so they run in one click; deliberately **not** on `DELETE` (a stray click would deactivate the demo product and break the order example) and not on the alerts `productId` filter (it would hide every other alert on the first click). Added notes that the create-product and order-status examples return 409 on a second click, and that the order example runs out after about 25 clicks. Added `<remarks>` to `POST /api/orders`.
+- **New tests (`SwaggerDemoTests`, +25, integration now 131):** every JSON-body operation has an example; ids pre-filled where safe and not on DELETE; guidance from both the filter and the XML remarks reaches the document; parameter guidance applies whatever the casing; the demo product is seeded exactly once; and the served examples **execute successfully as-is** against a freshly seeded Development app (the permanent guard that the demo cannot silently break). The test factory now runs the real `DatabaseInitializer` once before starting its two hosts, which avoids a seeding race. Mutation-checked: registering the filter before the XML comments, case-sensitive matching, and pre-filling DELETE each make exactly the intended tests fail; all restored, no markers left.
+- **README:** added a "Swagger demo walkthrough" (click-through table, the one-shot caveats, the stale-process gotcha) and updated the test count to 148 + 131 = 279.
+- **Things only the user can do or confirm:** restart the app on port 5080; and README section 14 states the system was manually verified with Swagger and Postman, which I did not do (my earlier walkthrough used a script), so that claim should be checked.
+- **Not verified:** a Debug build (the running process holds it locked; Release was used instead), and the IDE style hints on `Program.cs` and `ApiFactoryVariants.cs` (suggestions only, the build has 0 warnings).
+
+---
