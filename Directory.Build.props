@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Only the Api and test hosts are executables. This lets them run on a newer installed runtime
+         when .NET 8 itself is not present. Has no effect on class libraries. -->
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+</Project>

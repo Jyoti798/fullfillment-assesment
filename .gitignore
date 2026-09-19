@@ -1,0 +1,17 @@
+## .NET build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+
+## Local databases created by running the API
+*.db
+*.db-shm
+*.db-wal
+
+## Test output
+TestResults/
+*.trx
